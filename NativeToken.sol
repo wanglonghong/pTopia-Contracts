@@ -309,7 +309,7 @@ contract NativeToken is BEP20 {
     }
 
     /**
-     * @dev Exclude the address frm antiWhale.
+     * @dev Exclude the address from antiWhale.
      */
     function excludeFromAntiWhale(address _account) public onlyOperator {
         _excludedFromAntiWhale[_account] = true;
