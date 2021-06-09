@@ -3,14 +3,14 @@
 pragma solidity 0.6.12;
 
 import "./interfaces/IBEP20.sol";
+import "./interfaces/IReferral.sol";
 
 import "./helpers/ReentrancyGuard.sol";
 import "./helpers/Pausable.sol";
 import "./helpers/Ownable.sol";
 
 import "./libraries/SafeBEP20.sol";
-import "NativeToken.sol"
-
+import "NativeToken.sol";
 
 contract NativeFarm is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
@@ -60,6 +60,12 @@ contract NativeFarm is Ownable, ReentrancyGuard {
     uint256 public MAXIMUM_HARVEST_INTERVAL = 14 days;   
     // Total rewards locked by harvest interval
     uint256 public totalLockedUpRewards;
+    // Native referral contract
+    IReferral public nativeReferral;
+    // Maximum referral commission rate
+    uint256 public MAXIMUM_REFERRAL_COMMISSION_RATE = 1000;
+    // Referral commission rate
+    uint256 public referralCommissionRate = 100;
 
     PoolInfo[] public poolInfo; // Info of each pool.
     mapping(uint256 => mapping(address => UserInfo)) public userInfo; // Info of each user that stakes LP tokens.
@@ -76,6 +82,9 @@ contract NativeFarm is Ownable, ReentrancyGuard {
 
     /// @notice Emitted when a user withdraw accidently
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
+
+    /// @notice Emitted when a referrer is paid.
+    event ReferralPaid(address indexed user, address indexed referrer, uint256 amount);
 
     constructor (
         NativeToken _nativeToken,
@@ -336,11 +345,25 @@ contract NativeFarm is Ownable, ReentrancyGuard {
 
                 // send rewards
                 safeNATIVETransfer(msg.sender, totalRewards);
+                payReferralCommission(msg.sender, totalRewards);
             }
         } else if (pending > 0) {
             user.rewardLockedUp = user.rewardLockedUp.add(pending);
             totalLockedUpRewards = totalLockedUpRewards.add(pending);
             emit RewardLockedUp(msg.sender, _pid, pending);
+        }
+    }
+
+    function payReferralCommission(address _user, uint256 _pending) internal {
+        if (address(nativeReferral) != address(0) && referralCommissionRate > 0) {
+            address referrer = nativeReferral.getReferrer(_user);
+            uint256 commissionAmount = _pending.mul(referralCommissionRate).div(10000);
+            if (referrer != address(0) && commissionAmount > 0) {
+                NATIVEToken(NATIVE).mint(referrer, commissionAmount);
+                nativeReferral.recordReferralCommission(referrer, commissionAmount);
+
+                emit ReferralPaid(_user, referrer, commissionAmount);
+            }
         }
     }    
 
@@ -358,6 +381,15 @@ contract NativeFarm is Ownable, ReentrancyGuard {
     function canHarvest(uint256 _pid, address _user) public view returns (bool) {
         UserInfo storage user = userInfo[_pid][_user];
         return block.timestamp >= user.nextHarvestUntil;
+    }
+
+    function setReferral(IReferral _nativeReferral) external onlyOwner {
+        nativeReferral = _nativeReferral;
+    }
+
+    function setReferralCommissionRate(uint256 _referralCommissionRate) external onlyOwner {
+        require(_referralCommissionRate <= MAXIMUM_REFERRAL_COMMISSION_RATE, "setReferralCommissionRate: The commission rate exceeds the maximum allowance");
+        referralCommissionRate = _referralCommissionRate;
     }
 
     function inCaseTokensGetStuck(address _token, uint256 _amount)
