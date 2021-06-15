@@ -2,15 +2,16 @@
 
 pragma solidity 0.6.12;
 
-import "./interfaces/IBEP20.sol";
-import "./interfaces/IReferral.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import "./helpers/ReentrancyGuard.sol";
-import "./helpers/Pausable.sol";
-import "./helpers/Ownable.sol";
+import "./interfaces/IReferral.sol";
+import "./interfaces/IBEP20.sol";
+import "./interfaces/IStrategy.sol";
 
 import "./libraries/SafeBEP20.sol";
-import "NativeToken.sol";
+import "./NativeToken.sol";
 
 contract NativeFarm is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
@@ -27,13 +28,14 @@ contract NativeFarm is Ownable, ReentrancyGuard {
         // entitled to a user but is pending to be distributed is:
         //
         //   amount = user.shares / sharesTotal * wantLockedTotal
-        //   pending reward = (amount * pool.accNATIVEPerShare) - user.rewardDebt
+        //   pending reward = (amount * pool.accNATIVEPerShare) - user.rewardDebt + user.rewardLockedUp
         //
         // Whenever a user deposits or withdraws want tokens to a pool. Here's what happens:
         //   1. The pool's `accNATIVEPerShare` (and `lastRewardBlock`) gets updated.
         //   2. User receives the pending reward sent to his/her address.
         //   3. User's `amount` gets updated.
         //   4. User's `rewardDebt` gets updated.
+        //   5. User's `rewardLockUp` gets updated.
     }
 
     /// @notice Info of each pool
@@ -48,8 +50,8 @@ contract NativeFarm is Ownable, ReentrancyGuard {
 
     // Token address
     address public NATIVE;
-    // Owner reward per block: 10% ==> 11.11%
-    uint256 public ownerNATIVEReward = 1111;
+    // Owner reward per block: 9%
+    uint256 public ownerNATIVEReward = 900;
     // Native total supply: 2.2 mil = 2200000e18
     uint256 public NATIVEMaxSupply = 2000000e18;
     // Natives per block: (0.204528125 - owner 10%)
@@ -87,8 +89,8 @@ contract NativeFarm is Ownable, ReentrancyGuard {
     event ReferralPaid(address indexed user, address indexed referrer, uint256 amount);
 
     constructor (
-        NativeToken _nativeToken,
-        uint256 _startBlock,
+        address _nativeToken,
+        uint256 _startBlock
     ) public {
         NATIVE = _nativeToken;
         startBlock = _startBlock;
@@ -130,6 +132,7 @@ contract NativeFarm is Ownable, ReentrancyGuard {
         uint256 _pid,
         uint256 _allocPoint,
         uint256 _harvestInterval,
+        address _strategy,
         bool _withUpdate
     ) public onlyOwner {
         require(_harvestInterval <= MAXIMUM_HARVEST_INTERVAL, "set: invalid harvest interval");
@@ -141,6 +144,7 @@ contract NativeFarm is Ownable, ReentrancyGuard {
         );
         poolInfo[_pid].allocPoint = _allocPoint;
         poolInfo[_pid].harvestInterval = _harvestInterval;
+        poolInfo[_pid].strategy = _strategy;
     }
 
     // Return reward multiplier over the given _from to _to block.
@@ -149,7 +153,7 @@ contract NativeFarm is Ownable, ReentrancyGuard {
         view
         returns (uint256)
     {
-        if (IBEP20(NATIVE).totalSupply() >= NATIVEMaxSupply) {
+        if (NativeToken(NATIVE).totalSupply() >= NATIVEMaxSupply) {
             return 0;
         }
         return _to.sub(_from);
@@ -224,11 +228,11 @@ contract NativeFarm is Ownable, ReentrancyGuard {
                 totalAllocPoint
             );
 
-        NATIVEToken(NATIVE).mint(
+        NativeToken(NATIVE).mint(
             owner(),
             NATIVEReward.mul(ownerNATIVEReward).div(10000)
         );
-        NATIVEToken(NATIVE).mint(address(this), NATIVEReward);
+        NativeToken(NATIVE).mint(address(this), NATIVEReward);
 
         pool.accNATIVEPerShare = pool.accNATIVEPerShare.add(
             NATIVEReward.mul(1e12).div(sharesTotal)
@@ -359,7 +363,7 @@ contract NativeFarm is Ownable, ReentrancyGuard {
             address referrer = nativeReferral.getReferrer(_user);
             uint256 commissionAmount = _pending.mul(referralCommissionRate).div(10000);
             if (referrer != address(0) && commissionAmount > 0) {
-                NATIVEToken(NATIVE).mint(referrer, commissionAmount);
+                NativeToken(NATIVE).mint(referrer, commissionAmount);
                 nativeReferral.recordReferralCommission(referrer, commissionAmount);
 
                 emit ReferralPaid(_user, referrer, commissionAmount);
@@ -369,11 +373,11 @@ contract NativeFarm is Ownable, ReentrancyGuard {
 
     // Safe AUTO transfer function, just in case if rounding error causes pool to not have enough
     function safeNATIVETransfer(address _to, uint256 _NATIVEAmt) internal {
-        uint256 NATIVEBal = IBEP20(NATIVE).balanceOf(address(this));
+        uint256 NATIVEBal = NativeToken(NATIVE).balanceOf(address(this));
         if (_NATIVEAmt > NATIVEBal) {
-            IBEP20(NATIVE).transfer(_to, NATIVEBal);
+            NativeToken(NATIVE).transfer(_to, NATIVEBal);
         } else {
-            IBEP20(NATIVE).transfer(_to, _NATIVEAmt);
+            NativeToken(NATIVE).transfer(_to, _NATIVEAmt);
         }
     }
 

@@ -54,7 +54,7 @@ contract NativeReferral is IReferral, Ownable {
     function recordReferralCommission(address _referrer, uint256 _commission) public override onlyOperator {
 
         require(_referrer != address(0), "recordReferralCommission: Invalid referrer address");
-        require(_comission > 0, "recordReferralCommission: The commission amount should be larger than zero");
+        require(_commission > 0, "recordReferralCommission: The commission amount should be larger than zero");
 
         totalReferralCommissions[_referrer] += _commission;
         emit ReferralCommissionRecorded(_referrer, _commission);

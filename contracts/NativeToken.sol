@@ -331,12 +331,5 @@ contract NativeToken is BEP20 {
         assembly { chainId := chainid() }
         return chainId;
     }
-
-    function isContract(address _addr) view private returns (bool){
-        uint32 size;
-        assembly {
-            size := extcodesize(_addr)
-        }
-        return (size > 0);
-    }       
+  
 }

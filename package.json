@@ -1,16 +1,36 @@
 {
-    "name": "pTopiaContracts",
-    "version": "1.0.0",
-    "license": "MIT",
-    "devDependencies": {
-      "@openzeppelin/contracts": "^3.1.0",
-      "@openzeppelin/contracts-upgradeable": "^3.4.0",
-      "@openzeppelin/test-helpers": "^0.5.10",
-      "@openzeppelin/truffle-upgrades": "^1.5.0",
-      "truffle-contract-size": "^2.0.1",
-      "truffle-hdwallet-provider": "^1.0.17",
-      "truffle-plugin-verify": "^0.5.4",
-      "web3": "^1.3.0"
-    }
+  "name": "pTopiaContracts",
+  "version": "1.0.0",
+  "license": "MIT",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^3.1.0",
+    "@openzeppelin/contracts-upgradeable": "^3.4.0",
+    "@openzeppelin/test-helpers": "^0.5.10",
+    "@openzeppelin/truffle-upgrades": "^1.5.0",
+    "truffle-contract-size": "^2.0.1",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "truffle-plugin-verify": "^0.5.4",
+    "web3": "^1.3.0"
+  },
+  "scripts": {
+    "migrate": "truffle migrate --network testnet --reset",
+    "compile": "truffle compile --network testnet",
+    "test": "npx builder test",
+    "coverage": "npx builder coverage"
+  },
+  "dependencies": {
+    "@nomiclabs/buidler": "^1.4.7",
+    "@nomiclabs/buidler-ethers": "^2.0.0",
+    "@nomiclabs/buidler-truffle5": "^1.3.4",
+    "@nomiclabs/buidler-waffle": "^2.0.0",
+    "@nomiclabs/buidler-web3": "^1.3.4",
+    "chai": "^4.2.0",
+    "dotenv": "^10.0.0",
+    "ethereum-waffle": "^3.0.0",
+    "ethers": "^5.0.14",
+    "solidity-coverage": "^0.7.13",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "truffle-plugin-verify": "^0.4.0",
+    "web3": "^1.3.0"
   }
-  
+}
