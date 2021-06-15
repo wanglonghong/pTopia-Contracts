@@ -241,10 +241,15 @@ contract NativeFarm is Ownable, ReentrancyGuard {
     }
 
     // Want tokens moved from user -> AUTOFarm (AUTO allocation) -> Strat (compounding)
-    function deposit(uint256 _pid, uint256 _wantAmt) public nonReentrant {
+    function deposit(uint256 _pid, uint256 _wantAmt, address _referrer) public nonReentrant {
         updatePool(_pid);
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
+
+        if (_wantAmt > 0 && address(nativeReferral) != address(0) 
+            && _referrer != address(0) && _referrer != msg.sender) {
+                nativeReferral.recordReferral(msg.sender, _referrer);
+        }
 
         payOrLockupPendingNative(_pid);
 
